@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { dashboardAPI, plannerAPI, trackerAPI } from '../services/api';
 import { DashboardData, MealPlan, Meal, MealLog } from '../types';
 import { 
-  Heart, Flame, Droplet, CheckCircle2, UserCheck, Eye, Mic, MicOff,
-  Volume2, VolumeX, AlertTriangle, RefreshCw, Plus, Minus, Download, LogOut
+  Flame, Droplet, CheckCircle2, UserCheck, Eye, Mic, MicOff,
+  Volume2, VolumeX, AlertTriangle, RefreshCw, Plus, Minus, Download
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
@@ -11,11 +11,9 @@ import {
 } from 'recharts';
 
 interface DashboardProps {
-  onLogout: () => void;
-  onNavigateToChat: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onLogout, onNavigateToChat }) => {
+export const Dashboard: React.FC<DashboardProps> = () => {
   const [stats, setStats] = useState<DashboardData | null>(null);
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [logs, setLogs] = useState<MealLog[]>([]);
@@ -27,6 +25,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, onNavigateToChat
   const [activeVoiceField, setActiveVoiceField] = useState<string | null>(null);
   const [extraFoodInputs, setExtraFoodInputs] = useState<Record<string, string>>({});
   const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   
   // Speech synthesis speaker state
   const [speakingMeal, setSpeakingMeal] = useState<string | null>(null);
@@ -48,6 +47,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, onNavigateToChat
 
   useEffect(() => {
     fetchDashboardData();
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
   }, []);
 
   const handleRefreshPlan = async () => {
@@ -102,41 +106,74 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, onNavigateToChat
 
   // --- Voice Web Speech API helpers ---
   const startSpeechRecognition = (category: string) => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser. Please use Chrome or Safari.");
+    if (listening && activeVoiceField === category) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setListening(false);
+      setActiveVoiceField(null);
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-IN';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    // Stop any current instance
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+    }
 
-    recognition.onstart = () => {
-      setListening(true);
-      setActiveVoiceField(category);
-    };
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice input (Speech Recognition) is not supported on this browser or connection. Note: Chrome/Safari are recommended, and a secure connection (HTTPS or localhost) is required.");
+      return;
+    }
 
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setExtraFoodInputs(prev => ({
-        ...prev,
-        [category]: (prev[category] || '') + transcript
-      }));
-    };
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognitionRef.current = recognition;
 
-    recognition.onerror = () => {
+      recognition.onstart = () => {
+        setListening(true);
+        setActiveVoiceField(category);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setExtraFoodInputs(prev => ({
+          ...prev,
+          [category]: ((prev[category] || '').trim() + ' ' + transcript).trim()
+        }));
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error === 'not-allowed') {
+          alert("Microphone permission was denied. Please allow microphone access in your browser settings to use voice dictation.");
+        } else if (event.error === 'no-speech') {
+          // Silently handle no-speech
+        } else if (event.error === 'aborted') {
+          // Silently handle manual abort
+        } else {
+          alert(`Speech recognition error: ${event.error}`);
+        }
+        setListening(false);
+        setActiveVoiceField(null);
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+        setActiveVoiceField(null);
+        recognitionRef.current = null;
+      };
+
+      recognition.start();
+    } catch (e: any) {
+      console.error("Failed to start speech recognition:", e);
+      alert(`Failed to start speech recognition: ${e.message || e}`);
       setListening(false);
       setActiveVoiceField(null);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      setActiveVoiceField(null);
-    };
-
-    recognition.start();
+    }
   };
 
   // Speak meal details aloud
@@ -221,53 +258,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout, onNavigateToChat
     : [];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
-      {/* Top Header bar */}
-      <header className="glass-panel sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
-            <Heart className="w-6 h-6 text-slate-950 fill-slate-950" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-              NutriMind AI
-            </h1>
-            <span className="text-xs text-slate-400">Dietician & Geriatric Portal</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setCaregiverMode(!caregiverMode)}
-            className={`py-2 px-4 rounded-xl border font-bold flex items-center gap-2 text-sm transition-all ${
-              caregiverMode 
-                ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200' 
-                : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <Eye className="w-4 h-4" />
-            {caregiverMode ? 'Exit Caregiver Mode' : 'Caregiver Mode'}
-          </button>
-          
-          <button
-            onClick={onNavigateToChat}
-            className="py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-md"
-          >
-            Ask Dietician Chat
-          </button>
-
-          <button
-            onClick={onLogout}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-400"
-            title="Log Out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
-
+    <div className="pb-20">
       {/* Main Body */}
       <main className="max-w-7xl mx-auto px-6 py-8">
+        
+        {/* Page Title & Top Actions */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-slate-850">
+          <div>
+            <h1 className="text-3xl font-extrabold text-slate-100 tracking-tight">
+              Geriatric Health Dashboard
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Welcome back to your personalized diet tracker and wellness portal.
+            </p>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <button
+              onClick={() => setCaregiverMode(!caregiverMode)}
+              className={`py-2.5 px-5 rounded-xl border font-bold flex items-center gap-2 text-elderly-base transition-all cursor-pointer ${
+                caregiverMode 
+                  ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 shadow-md shadow-indigo-600/5' 
+                  : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-850'
+              }`}
+            >
+              <Eye className="w-5 h-5" />
+              {caregiverMode ? 'Exit Caregiver Mode' : 'Caregiver Mode'}
+            </button>
+          </div>
+        </div>
         
         {/* WARNINGS & ALERTS */}
         {stats?.warnings && stats.warnings.length > 0 && (

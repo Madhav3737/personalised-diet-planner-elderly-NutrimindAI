@@ -4,6 +4,7 @@ import { IntakeWizard } from './pages/IntakeWizard';
 import { Dashboard } from './pages/Dashboard';
 import { Chat } from './pages/Chat';
 import { profileAPI, authAPI } from './services/api';
+import { NavBar } from './components/NavBar';
 
 type PageView = 'DASHBOARD' | 'CHAT' | 'WIZARD';
 
@@ -67,7 +68,7 @@ export const App: React.FC = () => {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  if (profileComplete === false || currentView === 'WIZARD') {
+  if (profileComplete === false) {
     return (
       <IntakeWizard 
         onComplete={() => {
@@ -78,15 +79,30 @@ export const App: React.FC = () => {
     );
   }
 
-  if (currentView === 'CHAT') {
-    return <Chat onBack={() => setCurrentView('DASHBOARD')} />;
-  }
-
   return (
-    <Dashboard 
-      onLogout={handleLogout} 
-      onNavigateToChat={() => setCurrentView('CHAT')} 
-    />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      <NavBar 
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onLogout={handleLogout}
+      />
+      <div className="flex-1">
+        {currentView === 'DASHBOARD' && (
+          <Dashboard />
+        )}
+        {currentView === 'CHAT' && (
+          <Chat />
+        )}
+        {currentView === 'WIZARD' && (
+          <IntakeWizard 
+            onComplete={() => {
+              setProfileComplete(true);
+              setCurrentView('DASHBOARD');
+            }} 
+          />
+        )}
+      </div>
+    </div>
   );
 };
 

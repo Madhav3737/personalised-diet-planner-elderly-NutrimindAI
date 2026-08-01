@@ -154,12 +154,6 @@ class ChatHistoryRepository(BaseRepository[ChatHistory]):
         result = await self.db.execute(
             select(ChatHistory)
             .filter(ChatHistory.user_id == user_id)
-            .order_back_by_date(ChatHistory.created_at.desc()) # Note: ordering logic is handled correctly below
-        )
-        # Fix: order by created_at desc
-        result = await self.db.execute(
-            select(ChatHistory)
-            .filter(ChatHistory.user_id == user_id)
             .order_by(ChatHistory.created_at.desc())
             .limit(limit)
         )

@@ -21,12 +21,6 @@ async def get_profile(
     profile = await profile_service.get_profile(current_user.id)
     if not profile:
         raise HTTPException(
-            status_code=status.HTTP_444_NOT_FOUND,
-            detail="Profile not found. Please complete profile wizard."
-        )
-    # Fix: 444 is not a standard status, let's use 404
-    if not profile:
-        raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Profile not found. Please complete profile wizard."
         )

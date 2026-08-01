@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { profileAPI } from '../services/api';
 import { Profile, MedicalHistory } from '../types';
-import { UserRound, Activity, Stethoscope, AlertTriangle, ShieldCheck, Banknote, MapPin, ArrowRight, ArrowLeft } from 'lucide-react';
+import { UserRound, Stethoscope, AlertTriangle, ShieldCheck, Banknote, MapPin, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface WizardProps {
   onComplete: () => void;

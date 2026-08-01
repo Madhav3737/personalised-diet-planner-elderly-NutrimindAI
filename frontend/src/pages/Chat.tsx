@@ -2,14 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { chatAPI } from '../services/api';
 import { ChatHistoryEntry } from '../types';
 import { 
-  Send, Mic, MicOff, Volume2, VolumeX, ArrowLeft, Bot, User, HeartPulse
+  Send, Mic, MicOff, Volume2, VolumeX, Bot, User, HeartPulse
 } from 'lucide-react';
 
 interface ChatProps {
-  onBack: () => void;
 }
 
-export const Chat: React.FC<ChatProps> = ({ onBack }) => {
+export const Chat: React.FC<ChatProps> = () => {
   const [history, setHistory] = useState<ChatHistoryEntry[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,6 +16,7 @@ export const Chat: React.FC<ChatProps> = ({ onBack }) => {
   const [speakingMsgId, setSpeakingMsgId] = useState<number | null>(null);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const fetchChatHistory = async () => {
     try {
@@ -29,6 +29,12 @@ export const Chat: React.FC<ChatProps> = ({ onBack }) => {
 
   useEffect(() => {
     fetchChatHistory();
+    return () => {
+      // Cleanup voice recognition on unmount
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -73,34 +79,60 @@ export const Chat: React.FC<ChatProps> = ({ onBack }) => {
 
   // --- Voice input: Speech Recognition ---
   const startSpeechRecognition = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported on this browser.");
+    if (listening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setListening(false);
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-IN';
-    recognition.interimResults = false;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice input (Speech Recognition) is not supported on this browser or connection. Note: Chrome/Safari are recommended, and a secure connection (HTTPS or localhost) is required.");
+      return;
+    }
 
-    recognition.onstart = () => {
-      setListening(true);
-    };
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.interimResults = false;
+      recognitionRef.current = recognition;
 
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(prev => prev + ' ' + transcript);
-    };
+      recognition.onstart = () => {
+        setListening(true);
+      };
 
-    recognition.onerror = () => {
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(prev => (prev.trim() + ' ' + transcript).trim());
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error === 'not-allowed') {
+          alert("Microphone permission was denied. Please allow microphone access in your browser settings to use voice input.");
+        } else if (event.error === 'no-speech') {
+          // Silently handle no-speech
+        } else if (event.error === 'aborted') {
+          // Silently handle manual stop
+        } else {
+          alert(`Speech recognition error: ${event.error}`);
+        }
+        setListening(false);
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognition.start();
+    } catch (e: any) {
+      console.error("Failed to start speech recognition:", e);
+      alert(`Failed to start speech recognition: ${e.message || e}`);
       setListening(false);
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-    };
-
-    recognition.start();
+    }
   };
 
   // --- Voice output: Speech Synthesis ---
@@ -135,28 +167,7 @@ export const Chat: React.FC<ChatProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top Header bar */}
-      <header className="glass-panel px-6 py-4 flex items-center justify-between shadow-md">
-        <button
-          onClick={onBack}
-          className="py-2 px-4 bg-slate-900 border border-slate-700 text-slate-300 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-850 transition-colors text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </button>
-
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
-            <Bot className="w-6 h-6 text-slate-950" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-200">Dietician Assistant Chat</h1>
-            <span className="text-xs text-slate-400">RAG Guidelines-Based Clinical Care</span>
-          </div>
-        </div>
-
-        <div className="w-20" /> {/* Spacer */}
-      </header>
+    <div className="flex-grow flex flex-col h-[calc(100vh-76px)]">
 
       {/* Chat Area */}
       <div className="flex-1 max-w-4xl w-full mx-auto px-6 py-6 overflow-y-auto flex flex-col space-y-6">
