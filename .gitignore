@@ -41,6 +41,8 @@ htmlcov/
 # Embeddings/Database fallbacks
 backend/embeddings/*.npy
 backend/embeddings/*.index
+backend/embeddings/*.pkl
+backend/embeddings/*.faiss
 *.db
 *.sqlite
 *.sqlite3
