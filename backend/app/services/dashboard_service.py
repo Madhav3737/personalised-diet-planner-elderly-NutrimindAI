@@ -22,8 +22,12 @@ class DashboardService:
 
         meds = await self.med_repo.get_by_user_id(user_id)
         
-        # 1. BMI calculation
-        bmi = profile.bmi
+        # 1. BMI from current height (cm) and weight (kg)
+        height_m = (profile.height or 0) / 100.0
+        if height_m > 0 and (profile.weight or 0) > 0:
+            bmi = round(profile.weight / (height_m * height_m), 1)
+        else:
+            bmi = round(float(profile.bmi or 0), 1)
         if bmi < 18.5:
             bmi_status = "Underweight"
         elif bmi < 25.0:

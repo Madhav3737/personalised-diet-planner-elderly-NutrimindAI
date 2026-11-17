@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy import delete
 from typing import List, Optional, Type, TypeVar, Generic
-from app.models.models import User, Profile, MedicalHistory, Allergy, Preference, MealPlan, Meal, MealLog, HabitHistory, ChatHistory, Recommendation
+from app.models.models import User, Profile, MedicalHistory, Allergy, Preference, MealPlan, MealLog, HabitHistory, ChatHistory, Recommendation
 
 T = TypeVar('T')
 
@@ -94,16 +95,10 @@ class MealPlanRepository(BaseRepository[MealPlan]):
     async def get_by_date(self, user_id: int, date: str) -> Optional[MealPlan]:
         result = await self.db.execute(
             select(MealPlan)
+            .options(selectinload(MealPlan.meals))
             .filter(MealPlan.user_id == user_id, MealPlan.date == date)
         )
-        plan = result.scalars().first()
-        if plan:
-            # Eager load meals
-            meals_result = await self.db.execute(
-                select(Meal).filter(Meal.meal_plan_id == plan.id)
-            )
-            plan.meals = meals_result.scalars().all()
-        return plan
+        return result.scalars().first()
 
 
 class MealLogRepository(BaseRepository[MealLog]):

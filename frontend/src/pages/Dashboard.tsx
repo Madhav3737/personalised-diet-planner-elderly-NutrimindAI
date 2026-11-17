@@ -33,13 +33,21 @@ export const Dashboard: React.FC<DashboardProps> = () => {
   const fetchDashboardData = async () => {
     try {
       const statsData = await dashboardAPI.getStats();
-      const planData = await plannerAPI.getPlan();
-      const logsData = await trackerAPI.getLogs();
       setStats(statsData);
+    } catch (err) {
+      console.error("Error loading dashboard stats:", err);
+    }
+    try {
+      const planData = await plannerAPI.getPlan();
       setPlan(planData);
+    } catch (err) {
+      console.error("Error loading meal plan:", err);
+    }
+    try {
+      const logsData = await trackerAPI.getLogs();
       setLogs(logsData);
     } catch (err) {
-      console.error("Error loading dashboard data:", err);
+      console.error("Error loading meal logs:", err);
     } finally {
       setLoading(false);
     }
@@ -306,9 +314,11 @@ export const Dashboard: React.FC<DashboardProps> = () => {
           <div className="glass-panel p-6 rounded-3xl shadow-xl flex items-center justify-between border-l-8 border-emerald-500">
             <div>
               <p className="text-slate-400 text-sm font-medium">Body Mass Index (BMI)</p>
-              <h3 className="text-3xl font-extrabold text-slate-100 mt-1">{stats?.bmi}</h3>
+              <h3 className="text-3xl font-extrabold text-slate-100 mt-1">
+                {stats?.bmi != null ? Number(stats.bmi).toFixed(1) : '—'}
+              </h3>
               <span className="text-xs bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full font-bold mt-2 inline-block">
-                {stats?.bmi_status}
+                {stats?.bmi_status || 'Not available'}
               </span>
             </div>
             <UserCheck className="w-12 h-12 text-emerald-500 opacity-80" />

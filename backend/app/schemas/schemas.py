@@ -99,6 +99,10 @@ class AllergyResponse(AllergyCreate):
     class Config:
         from_attributes = True
 
+class PreferenceListsUpdate(BaseModel):
+    likes: List[str] = []
+    dislikes: List[str] = []
+
 class PreferenceCreate(BaseModel):
     like_dislike: str # LIKE or DISLIKE
     food_item: str

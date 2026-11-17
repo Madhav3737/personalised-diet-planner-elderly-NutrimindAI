@@ -107,22 +107,50 @@ export const IntakeWizard: React.FC<WizardProps> = ({ onComplete }) => {
     setDislikes(dislikes.filter((_, i) => i !== idx));
   };
 
+  const heightM = profile.height > 0 ? profile.height / 100 : 0;
+  const calculatedBmi = heightM > 0 && profile.weight > 0
+    ? (profile.weight / (heightM * heightM)).toFixed(1)
+    : null;
+  const bmiStatus = calculatedBmi === null
+    ? ''
+    : Number(calculatedBmi) < 18.5
+      ? 'Underweight'
+      : Number(calculatedBmi) < 25
+        ? 'Normal'
+        : Number(calculatedBmi) < 30
+          ? 'Overweight'
+          : 'Obese';
+
   const handleSave = async () => {
     setLoading(true);
     setError('');
     try {
+      const likesToSave = likeInput.trim() && !likes.includes(likeInput.trim())
+        ? [...likes, likeInput.trim()]
+        : likes;
+      const dislikesToSave = dislikeInput.trim() && !dislikes.includes(dislikeInput.trim())
+        ? [...dislikes, dislikeInput.trim()]
+        : dislikes;
+      const allergiesToSave = allergyInput.trim() && !allergies.includes(allergyInput.trim())
+        ? [...allergies, allergyInput.trim()]
+        : allergies;
+
       // 1. Save Profile (automatically calculates BMI on server)
       await profileAPI.updateProfile(profile);
       // 2. Save Medical History
       await profileAPI.updateMedicalHistory(medical);
       // 3. Save Allergies
-      await profileAPI.updateAllergies(allergies);
+      await profileAPI.updateAllergies(allergiesToSave);
       // 4. Save Likes / Dislikes
-      await profileAPI.updatePreferences(likes, dislikes);
+      await profileAPI.updatePreferences(likesToSave, dislikesToSave);
       
       onComplete();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save health profile. Please check the fields.');
+      const detail = err.response?.data?.detail;
+      const message = Array.isArray(detail)
+        ? detail.map((item: { msg?: string }) => item.msg || 'Invalid field').join('. ')
+        : (typeof detail === 'string' ? detail : 'Failed to save health profile. Please check the fields.');
+      setError(message);
       setLoading(false);
     }
   };
@@ -252,6 +280,20 @@ export const IntakeWizard: React.FC<WizardProps> = ({ onComplete }) => {
                     className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 px-4 text-slate-100 focus:outline-none focus:border-emerald-500 text-elderly-base"
                   />
                 </div>
+              </div>
+
+              <div className="md:col-span-2 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-slate-300 text-sm font-medium">Body Mass Index (BMI)</p>
+                  <p className="text-3xl font-extrabold text-slate-100 mt-1">
+                    {calculatedBmi ?? '—'}
+                  </p>
+                </div>
+                {bmiStatus && (
+                  <span className="text-sm bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full font-bold">
+                    {bmiStatus}
+                  </span>
+                )}
               </div>
 
               <div>

@@ -87,8 +87,9 @@ export const profileAPI = {
     return { likes, dislikes };
   },
   updatePreferences: async (likes: string[], dislikes: string[]): Promise<any> => {
-    const response = await apiClient.post('/profile/preferences', null, {
-      params: { likes, dislikes }
+    const response = await apiClient.post('/profile/preferences', {
+      likes: likes ?? [],
+      dislikes: dislikes ?? [],
     });
     return response.data;
   }

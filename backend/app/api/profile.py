@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.models.models import User
 from app.schemas.schemas import (
     ProfileCreate, ProfileResponse, MedicalHistoryCreate, MedicalHistoryResponse,
-    AllergyResponse, PreferenceResponse
+    AllergyResponse, PreferenceResponse, PreferenceListsUpdate
 )
 from app.services.auth_service import get_current_user
 from app.services.profile_service import ProfileService
@@ -88,10 +88,9 @@ async def get_preferences(
 
 @router.post("/preferences", response_model=List[PreferenceResponse])
 async def update_preferences(
-    likes: List[str],
-    dislikes: List[str],
+    prefs: PreferenceListsUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     profile_service = ProfileService(db)
-    return await profile_service.update_preferences(current_user.id, likes, dislikes)
+    return await profile_service.update_preferences(current_user.id, prefs.likes, prefs.dislikes)
